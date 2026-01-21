@@ -56,6 +56,7 @@
 ```bash
 pip install -r requirements.txt
 uvicorn app:app --host 0.0.0.0 --port 8000
+```bash
 
 打开浏览器访问：
 
@@ -70,8 +71,9 @@ Build
 docker build -t md2docx-web .
 
 Run
+```bash
 docker run --rm -p 8000:8000 md2docx-web
-
+```bash
 
 打开：
 
