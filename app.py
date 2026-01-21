@@ -402,51 +402,59 @@ $$
     }
 
     async function copyToClipboardForWord(){
-      // 走 /convert_html：后端用 pandoc 转 HTML（含 MathML），前端以 text/html 写剪贴板
-      const fd = getFormData();
-      setBusy(true, '转换并复制中…');
-      try{
-        const res = await fetch('/convert_html', { method:'POST', body: fd });
-        if(!res.ok){
-          const err = await res.json().catch(()=>({error:'转换失败'}));
-          throw new Error(err.error || '转换失败');
-        }
-        const html = await res.text();
-
-        // 兼容：同时写入 text/html 和 text/plain（有的环境只认 plain）
-        const plain = html
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<\/p>\s*<p>/gi, '\n\n')
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&');
-
-        if (!navigator.clipboard || !window.ClipboardItem) {
-          // 退化方案：复制纯文本
-          await navigator.clipboard.writeText(plain);
-          toast('已复制（纯文本）。到 Word 里 Ctrl+V 粘贴。');
-          setBusy(false, '完成 ✅');
-          return;
-        }
-
-        const item = new ClipboardItem({
-          'text/html': new Blob([html], { type: 'text/html' }),
-          'text/plain': new Blob([plain], { type: 'text/plain' }),
-        });
-
-        await navigator.clipboard.write([item]);
-        toast('已复制到剪贴板。到 Word 里 Ctrl+V 粘贴。');
-        setBusy(false, '完成 ✅');
-      }catch(e){
-        console.error(e);
-        toast('失败：' + e.message + '（提示：复制功能需要 HTTPS & 现代浏览器）');
-        setBusy(false, '失败 ❌');
-      }
+  const fd = getFormData();
+  setBusy(true, '转换并复制中…');
+  try{
+    const res = await fetch('/convert_html', { method:'POST', body: fd });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error:'转换失败'}));
+      throw new Error(err.error || '转换失败');
     }
+    const frag = await res.text();
+
+    // 1) 放进隐藏容器
+    let box = document.getElementById('__copy_box__');
+    if(!box){
+      box = document.createElement('div');
+      box.id = '__copy_box__';
+      box.contentEditable = 'true';
+      box.style.position = 'fixed';
+      box.style.left = '-99999px';
+      box.style.top = '0';
+      box.style.width = '800px';
+      box.style.padding = '20px';
+      box.style.background = 'white';
+      box.style.color = 'black';
+      document.body.appendChild(box);
+    }
+    box.innerHTML = frag;
+
+    // 2) 选中它
+    const range = document.createRange();
+    range.selectNodeContents(box);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    // 3) 触发“原生复制”
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+
+    if(!ok){
+      // 退化：至少复制纯文本
+      await navigator.clipboard.writeText(box.innerText || frag);
+      toast('已复制（退化为纯文本）。建议用“下载 docx”保证公式。');
+    }else{
+      toast('已复制到剪贴板。到 Word 里 Ctrl+V 粘贴。');
+    }
+    setBusy(false, '完成 ✅');
+  }catch(e){
+    console.error(e);
+    toast('失败：' + e.message);
+    setBusy(false, '失败 ❌');
+  }
+}
+
 
     async function copyPrompt(){
       try{
@@ -557,19 +565,15 @@ def run_pandoc_docx(md_path: Path, out_docx: Path, ref_docx: Optional[Path]) -> 
         raise RuntimeError("Pandoc returned 0 but output.docx not found.")
 
 
-def run_pandoc_html(md_path: Path) -> str:
-    """
-    用于“复制到 Word”功能：把 Markdown 转 HTML。
-    这里使用 --mathml，让公式尽量以 MathML 形式进入 HTML（Word 支持情况取决于版本）。
-    """
+def run_pandoc_html_fragment(md_path: Path) -> str:
     from_format = "markdown+tex_math_dollars+tex_math_single_backslash+raw_tex"
     cmd = [
         "pandoc",
         str(md_path),
         "-f", from_format,
         "-t", "html",
-        "--standalone",
         "--mathml",
+        "--wrap=none",
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
@@ -579,10 +583,11 @@ def run_pandoc_html(md_path: Path) -> str:
             f"STDOUT:\n{r.stdout}\n"
             f"STDERR:\n{r.stderr}\n"
         )
-    html = r.stdout or ""
-    if not html.strip():
+    html = (r.stdout or "").strip()
+    if not html:
         raise RuntimeError("Pandoc HTML returned empty output.")
     return html
+
 
 
 @app.get("/health")
@@ -647,22 +652,17 @@ async def convert_html(
     stem: str = Form("output"),
     reference: UploadFile | None = File(None),
 ):
-    """
-    给“复制到 Word”按钮用：返回 HTML 文本（前端写入剪贴板）。
-    注意：这里不使用 reference.docx（模板只对 docx 输出生效）。
-    """
-    # 同样做个大小限制
     if len(md.encode("utf-8")) > 2_000_000:
         return JSONResponse(status_code=413, content={"error": "Markdown 内容过大（>2MB），请缩小后再试。"})
-
     try:
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             md_path = td / "input.md"
             md_path.write_text(md, encoding="utf-8")
-            html = run_pandoc_html(md_path)
+            frag = run_pandoc_html_fragment(md_path)
 
-        # 返回 HTML（不是 JSON），前端拿来写入剪贴板
-        return Response(content=html, media_type="text/html; charset=utf-8")
+        # 直接返回“片段”，前端会塞到 DOM 再复制
+        return Response(content=frag, media_type="text/plain; charset=utf-8")
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
