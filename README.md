@@ -165,7 +165,6 @@ docker run --rm -p 8000:8000 md2docx-web
 
 * MIT
 * Apache-2.0
-* 或暂不声明
 
 ---
 
@@ -174,6 +173,4 @@ docker run --rm -p 8000:8000 md2docx-web
 * 公众号：知新小窝
 * 用途：Markdown 文档快速生成 Word（保留公式）
 
-```
-::contentReference[oaicite:0]{index=0}
-```
+
