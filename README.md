@@ -1,3 +1,4 @@
+```markdown
 # Markdown → Word（Pandoc）Web Converter
 
 一个基于 **FastAPI + Pandoc** 的在线工具：将 **Pandoc 友好的 Markdown** 一键转换为 **Word（.docx）**，并 **保留 LaTeX 公式**（转换为 Word 原生公式/OMML）。适合写论文、报告、技术文档时把 Markdown 快速输出为排版稳定的 Word 文档。
@@ -27,11 +28,15 @@
 ---
 
 ## Project Structure
-.
-├── app.py # FastAPI 服务：网页 + /convert 接口
-├── requirements.txt # Python 依赖
-└── Dockerfile # 安装 pandoc 并启动 uvicorn（Render 推荐）
 
+```
+
+.
+├── app.py               # FastAPI 服务：网页 + /convert 接口
+├── requirements.txt     # Python 依赖
+└── Dockerfile           # 安装 pandoc 并启动 uvicorn（Render 推荐）
+
+````
 
 ---
 
@@ -56,107 +61,115 @@
 ```bash
 pip install -r requirements.txt
 uvicorn app:app --host 0.0.0.0 --port 8000
-```bash
+````
 
 打开浏览器访问：
 
-http://127.0.0.1:8000
+* `http://127.0.0.1:8000`
 
 健康检查：
 
-http://127.0.0.1:8000/health
+* `http://127.0.0.1:8000/health`
 
-Docker Run (Recommended)
-Build
+---
+
+## Docker Run (Recommended)
+
+### Build
+
+```bash
 docker build -t md2docx-web .
+```
 
-Run
+### Run
+
 ```bash
 docker run --rm -p 8000:8000 md2docx-web
-```bash
+```
 
 打开：
 
-http://127.0.0.1:8000
+* `http://127.0.0.1:8000`
 
-Deploy to Render (Recommended)
+---
 
-将本项目推到 GitHub
+## Deploy to Render (Recommended)
 
-Render → New Web Service
+1. 将本项目推到 GitHub
+2. Render → **New Web Service**
+3. 选择你的 GitHub 仓库
+4. Runtime 选择 **Docker**
+5. Deploy
 
-选择你的 GitHub 仓库
+> Render 免费实例可能会在一段时间无访问后休眠，首次唤醒会有冷启动延迟。
 
-Runtime 选择 Docker
+---
 
-Deploy
+## How to Write Markdown (Pandoc-friendly)
 
-Render 免费实例可能会在一段时间无访问后休眠，首次唤醒会有冷启动延迟。
+* 标题用 `# / ## / ###`
+* 段落之间空一行
+* 公式使用：
 
-How to Write Markdown (Pandoc-friendly)
+  * 行内：`$E=mc^2$`
+  * 块级：
 
-标题用 # / ## / ###
+    ```text
+    $$
+    \mathbf{r}_P = \mathcal{F}(M(t)\,\mathbf{r}_{ECEF})
+    $$
+    ```
+* 列表用 `-` 或 `1.`
+* 尽量避免 HTML 标签（如 `<br>` `<span>`）
 
-段落之间空一行
+---
 
-公式使用：
+## API
 
-行内：$E=mc^2$
-
-块级：
-
-$$
-\mathbf{r}_P = \mathcal{F}(M(t)\,\mathbf{r}_{ECEF})
-$$
-
-
-列表用 - 或 1.
-
-尽量避免 HTML 标签（如 <br> <span>）
-
-API
-GET /
+### `GET /`
 
 返回网页界面。
 
-POST /convert
+### `POST /convert`
 
 表单参数：
 
-md：Markdown 内容（必填）
-
-stem：输出文件名（不含后缀，可选）
-
-reference：reference.docx 模板（可选）
+* `md`：Markdown 内容（必填）
+* `stem`：输出文件名（不含后缀，可选）
+* `reference`：reference.docx 模板（可选）
 
 返回：
 
-.docx 文件下载
+* `.docx` 文件下载
 
-GET /health
+### `GET /health`
 
 返回 Pandoc 可用性与版本信息。
 
-Notes
+---
 
-“下载 docx”是最稳定的方式（公式会被转换为 Word 原生公式）。
+## Notes
 
-Web 环境下无法像桌面程序那样“自动打开 Word/打开目录”（浏览器安全限制）。
+* “下载 docx”是最稳定的方式（公式会被转换为 Word 原生公式）。
+* Web 环境下无法像桌面程序那样“自动打开 Word/打开目录”（浏览器安全限制）。
 
-License
+---
+
+## License
 
 你可以选择并添加许可证，例如：
 
-MIT
+* MIT
+* Apache-2.0
+* 或暂不声明
 
-Apache-2.0
+---
 
-或暂不声明
+## Author
 
-Author
+* 公众号：知新小窝
+* 用途：Markdown 文档快速生成 Word（保留公式）
 
-公众号：知新小窝
-
-用途：Markdown 文档快速生成 Word（保留公式）
-
+```
 ::contentReference[oaicite:0]{index=0}
+```
